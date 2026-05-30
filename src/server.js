@@ -100,34 +100,41 @@ app.get('/linked-role', async (req, res) => {
  * Given a Discord UserId, push static make-believe data to the Discord 
  * metadata endpoint. 
  */
-async function updateMetadata(userId) {
-  // Fetch the Discord tokens from storage
-  const tokens = await storage.getDiscordTokens(userId);
-    
-  let metadata = {};
+async function updateMetadata(userId, tokens) {
+  // 1. CHOOSE WHAT DISCORD SERVER AND ROLE TO CHECK
+  const SERVER_ID = '1450556913300279393'; 
+  const STAFF_ROLE_ID = '1451299103530156073';
+
+  let isStaff = 0; // Default to false (0)
+
   try {
-    // Fetch the new metadata you want to use from an external source. 
-    // This data could be POST-ed to this endpoint, but every service
-    // is going to be different.  To keep the example simple, we'll
-    // just generate some random data. 
-    metadata = {
-      cookieseaten: 1483,
-      allergictonuts: 0, // 0 for false, 1 for true
-      firstcookiebaked: '2003-12-20',
-    };
+    // 2. Fetch the user's membership data for your specific server
+    const url = `https://discord.com{SERVER_ID}/members/${userId}`;
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+      },
+    });
+
+    if (response.ok) {
+      const memberData = await response.json();
+      // 3. Check if their roles array contains your Staff Role ID
+      if (memberData.roles && memberData.roles.includes(STAFF_ROLE_ID)) {
+        isStaff = 1; // Set to true (1) if they have the role
+      }
+    }
   } catch (e) {
-    e.message = `Error fetching external data: ${e.message}`;
-    console.error(e);
-    // If fetching the profile data for the external service fails for any reason,
-    // ensure metadata on the Discord side is nulled out. This prevents cases
-    // where the user revokes an external app permissions, and is left with
-    // stale linked role data.
+    console.error('Error fetching guild member data: ', e);
   }
 
-  // Push the data to Discord.
+  // 4. Push the metadata criteria back to Discord's Linked Roles system
+  const metadata = {
+    is_staff: isStaff,
+  };
+
+  await storage.storeDiscordTokens(userId, tokens);
   await discord.pushMetadata(userId, tokens, metadata);
 }
-
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
