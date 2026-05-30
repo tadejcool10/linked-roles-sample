@@ -109,7 +109,7 @@ async function updateMetadata(userId, tokens) {
 
   try {
     // 2. Fetch the user's membership data for your specific server
-    const url = `https://discord.com/${SERVER_ID}/members/${userId}`;
+    const url = `https://discord.com/api/v10/guilds/${SERVER_ID}/members/${userId}`;
     const response = await fetch(url, {
       headers: {
         Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
